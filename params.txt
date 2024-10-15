@@ -1,0 +1,43 @@
+# Parámetros Práctica 1
+
+# Archivos .TSP
+archivos = [a280.tsp, ch130.tsp, d18512.tsp, pr144.tsp, u1060.tsp]
+
+# Algoritmos
+algoritmos = [greedy_aleatorio]
+
+# Identificador Alumno (DNI)
+dni = 77378287
+
+# Nº de Ejecuciones
+num_ejecuciones = 5
+
+# Aleatoriedad (Greedy Aleatorio)
+k = 5
+
+# Nº Total de Iteraciones
+iteraciones = 5000
+
+# Porcentaje Inicialización (Tamaño Entorno Dinámico)
+per_tamanio = 0.08
+
+# Porcentaje Disminución (Tamaño Entorno Dinámico)
+per_disminucion = 0.10
+
+# Porcentaje Iteraciones Disminución (Tamaño Entorno Dinámico)
+per_iteraciones = 0.10
+
+# Porcentaje Estancamiento
+per_estancamiento = 0.05
+
+# Tenencia Tabú
+tenencia = 10
+
+# Oscilación Estratégica
+oscilacion_estrategica = 0.5
+
+# Registro de Eventos (Logs) --> {'yes' : terminal, 'no' : logs}
+echo = yes
+
+# Tamaño Lista Circular
+tamano_lista_circular = 20
