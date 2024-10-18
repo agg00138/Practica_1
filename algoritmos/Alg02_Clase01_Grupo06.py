@@ -17,7 +17,7 @@ class BusquedaLocal:
         self.distancia_actual = distancia_inicial
         self.params = params
 
-    def resolver(self, semilla):
+    def resolver(self, semilla, logger=None):
         """
         Resuelve el problema utilizando el algoritmo Búsqueda Local del Mejor con una semilla específica.
 
@@ -28,27 +28,33 @@ class BusquedaLocal:
         tamanio_entorno = int(self.params['iteraciones'] * self.params['per_tamanio'])
         cont = 0
 
+        if logger: logger.registrar_evento(f"Partimos de la solución del Greedy Aleatorio: {self.distancia_actual}")
+
         for iteracion in range(self.params['iteraciones']):
             # Generar vecinos
             vecinos = Utilidades.generar_vecinos(tamanio_entorno, self.tour_actual, self.matriz_distancias, self.distancia_actual)
+
+            if logger: logger.registrar_evento(f"Iteración: {iteracion}, Tamaño del entorno: {tamanio_entorno}, Vecinos generados: {tamanio_entorno}")
 
             # Buscar la mejor solución en los vecinos
             mejor_vecino = min(vecinos, key=lambda x: x[1], default=(None, float('inf'), None))
             nuevo_tour, nueva_distancia, movimiento = mejor_vecino
 
-            #print(f"Iteracion: {iteracion}, Distancia vecino generado: {nueva_distancia}")
+            if logger: logger.registrar_evento(f"Mejor vecino (movimiento): {movimiento}, Distancia: {nueva_distancia}")
 
             # Si encontramos un mejor vecino
             if nueva_distancia < self.distancia_actual:
                 self.tour_actual = nuevo_tour
                 self.distancia_actual = nueva_distancia
             else:
+                if logger: logger.registrar_evento(f"Ninguno de los vecinos mejora la solución actual.")
                 break
+
+            if logger: logger.registrar_evento(f"¡Mejora encontrada! Distancia actual: {nueva_distancia}")
 
             # Reducimos el tamaño del entorno
             tamanio_entorno, cont = Utilidades.reducir_entorno(tamanio_entorno, cont, iteracion, self.params['per_disminucion'], self.params['per_iteraciones'])
             if tamanio_entorno < (self.params['per_disminucion'] * 100):
                 break
-            #print(f"tamaño entorno: {tamanio_entorno}, iteracion: {iteracion}, cont: {cont}")
 
         return self.tour_actual, self.distancia_actual
