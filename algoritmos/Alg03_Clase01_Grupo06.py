@@ -18,11 +18,10 @@ class AlgoritmoTabu:
         self.distancia_actual = distancia_inicial
         self.params = params
 
-        # Inicializar la matriz (tamaño: número de ciudades x número de ciudades)
-        self.matriz_mcp_mlp = np.zeros((len(tour_inicial), len(tour_inicial)))  # Matriz para MCP y MLP
-        self.mcp_lista_circular = deque(maxlen=params['tamano_lista_circular'])  # Lista circular para la MCP
-        # self.mcp_lista_circular = []  # Lista circular sin tamaño fijo
-        self.mcp_mapa = {}  # Diccionario para el acceso rápido a la MCP
+        # La lista circular mantendrá los últimos 20 movimientos
+        self.mcp_lista_tabu = deque(maxlen=params['tamano_lista_circular'])  # Lista circular para la MCP
+        self.mcp_tenencias = {}  # Diccionario para las tenencias de cada movimiento
+        self.mlp = {}  # Diccionario para la MLP
 
         # Inicializa las variables para el seguimiento de las mejores soluciones
         self.mejor_momento_actual = tour_inicial.copy()  # Copia del tour inicial
@@ -30,7 +29,7 @@ class AlgoritmoTabu:
         self.distancia_mejor_momento_actual = self.distancia_actual
         self.distancia_mejor_global = self.distancia_actual
 
-    def resolver(self, semilla):
+    def resolver(self, semilla, logger=None):
         """
         Resuelve el problema utilizando el Algoritmo Tabú con una semilla específica.
 
@@ -42,19 +41,24 @@ class AlgoritmoTabu:
         cont = 0
         estancamiento_contador = 0
 
+        if logger: logger.registrar_evento(f"Partimos de la solución del Greedy Aleatorio: {self.distancia_actual}")
+        if logger: logger.registrar_evento(f"Solucion actual = {self.distancia_actual} | Mejor momento actual = {self.distancia_mejor_momento_actual} | Mejor Global = {self.distancia_mejor_global}\n")
+
         for iteracion in range(self.params['iteraciones']):
             # Generar vecinos
             vecinos_filtrados = []
             for _ in range(tamanio_entorno):
                 vecino, nueva_distancia, i, j = Utilidades.generar_vecino(self.tour_actual, self.matriz_distancias, self.distancia_actual)
-                if self.movimiento_no_tabu(vecino, (i, j)):
+                if self.movimiento_no_tabu((i, j)):
                     vecinos_filtrados.append((vecino, nueva_distancia, (i, j)))
+
+            if logger: logger.registrar_evento(f"Iteración: {iteracion}, Tamaño del entorno: {tamanio_entorno}, Vecinos generados: {tamanio_entorno}")
 
             # Buscar el mejor vecino
             mejor_vecino = min(vecinos_filtrados, key=lambda x: x[1], default=(None, float('inf'), None))
             nuevo_tour, nueva_distancia, movimiento = mejor_vecino
 
-            #print(f"Iteracion: {iteracion}, Distancia vecino generado: {nueva_distancia}, Tamaño Entorno: {tamanio_entorno}")
+            if logger: logger.registrar_evento(f"Mejor vecino (movimiento): {movimiento}, Distancia: {nueva_distancia}")
 
             # Actualizar memoria y manejar estancamiento
             if nueva_distancia < self.distancia_actual:
@@ -70,6 +74,8 @@ class AlgoritmoTabu:
                     self.mejor_global = nuevo_tour.copy()  # Copiar el nuevo tour
                     self.distancia_mejor_global = nueva_distancia
 
+                if logger: logger.registrar_evento(f"¡Mejora encontrada! Distancia actual: {nueva_distancia}")
+
                 self.actualizar_mcp(nuevo_tour, movimiento)
                 self.actualizar_mlp(nuevo_tour)
                 estancamiento_contador = 0  # Reiniciar el contador de estancamiento
@@ -78,7 +84,7 @@ class AlgoritmoTabu:
 
             # Verificar si hay estancamiento
             if estancamiento_contador >= self.params['per_estancamiento'] * self.params['iteraciones']:
-                print("Estancamiento detectado, generando nueva solución...")
+                if logger: logger.registrar_evento("Estancamiento detectado, generando nueva solución...")
                 self.generar_nueva_solucion()
                 estancamiento_contador = 0  # Reiniciar el contador de estancamiento
 
@@ -87,93 +93,162 @@ class AlgoritmoTabu:
             if tamanio_entorno < (self.params['per_disminucion'] * 100):
                 break
 
+            if logger: logger.registrar_evento(f"Solucion actual = {self.distancia_actual} | Mejor momento actual = {self.distancia_mejor_momento_actual} | Mejor Global = {self.distancia_mejor_global} | Estancamiento: {estancamiento_contador}\n")
+
         return self.mejor_global, self.distancia_mejor_global
 
-    def movimiento_no_tabu(self, vecino, movimiento):
+    def movimiento_no_tabu(self, movimiento):
         """
+        Comprueba si un movimiento no está en la lista tabú (MCP).
 
-        :param vecino:
-        :param movimiento:
-        :return:
+        :param movimiento: El par de índices a intercambiar (i, j).
+        :return: True si el movimiento no es tabú, False en caso contrario.
         """
-        # Verificar si el movimiento está en la MCP (movimiento prohibido)
         i, j = movimiento
-        ciudad_1, ciudad_2 = vecino[i], vecino[j]
 
-        casilla_1 = min(i, ciudad_1), max(i, ciudad_1)
-        casilla_2 = min(j, ciudad_2), max(j, ciudad_2)
+        # El par siempre se guarda en un orden consistente (i, j)
+        movimiento_tabu = (min(i, j), max(i, j))
 
-        # Verificar si el movimiento está en la MCP (movimiento prohibido)
-        return self.matriz_mcp_mlp[casilla_1] <= 0 and self.matriz_mcp_mlp[casilla_2] <= 0  # Comprobación de ambos movimientos
+        # Verificar si el movimiento está en la lista tabú (circular)
+        for tabu in self.mcp_lista_tabu:
+            if tabu == movimiento_tabu:
+                # Si el movimiento está en la lista tabú, se considera prohibido
+                return False
+
+        # Si no está en la lista tabú, el movimiento no es tabú
+        return True
 
     def actualizar_mcp(self, nuevo_tour, movimiento):
         """
-        Actualiza la MCP (Memoria de Control de Prohibición) mediante la lista circular y el mapa.
+        Actualiza la MCP (Memoria de Control de Prohibición) mediante la lista circular y el diccionario de tenencias.
+
+        :param nuevo_tour: El nuevo tour generado.
+        :param movimiento: El movimiento realizado (índices i, j).
         """
-        # Reducir la tenencia de todos los movimientos prohibidos en el diccionario
+        # Reducir la tenencia de todos los movimientos prohibidos en la MCP
         movimientos_a_eliminar = []
-        for movimiento, tenencia in self.mcp_mapa.items():
-            self.mcp_mapa[movimiento] -= 1
-            if self.mcp_mapa[movimiento] <= 0:
-                movimientos_a_eliminar.append(movimiento)  # Marcar para eliminar
+        for casilla, tenencia in self.mcp_tenencias.items():
+            # Decrementar la tenencia de cada movimiento
+            self.mcp_tenencias[casilla] -= 1
+            # Si la tenencia llega a 0 o menos, marcar para eliminación
+            if self.mcp_tenencias[casilla] <= 0:
+                movimientos_a_eliminar.append(casilla)
 
-        # Eliminar movimientos cuya tenencia ha caducado
-        for movimiento in movimientos_a_eliminar:
-            del self.mcp_mapa[movimiento]
-            # Eliminar de la lista circular si está presente
-            if movimiento in self.mcp_lista_circular:
-                self.mcp_lista_circular.remove(movimiento)
+        # Eliminar los movimientos cuya tenencia ha caducado
+        for movimiento_eliminar in movimientos_a_eliminar:
+            del self.mcp_tenencias[movimiento_eliminar]
+            # También eliminar de la lista circular si está presente
+            if movimiento_eliminar in self.mcp_lista_tabu:
+                self.mcp_lista_tabu.remove(movimiento_eliminar)
 
-        # Actualizar la tenencia tabú
+        # Actualizar la tenencia para el nuevo movimiento en la MCP
         i, j = movimiento
         ciudad_1, ciudad_2 = nuevo_tour[i], nuevo_tour[j]
 
-        casilla_1 = min(i, ciudad_1), max(i, ciudad_1)
-        casilla_2 = min(j, ciudad_2), max(j, ciudad_2)
+        # Crear las casillas que representan los pares (índice, ciudad) en la MCP
+        casilla_1 = (min(i, ciudad_1), max(i, ciudad_1))
+        casilla_2 = (min(j, ciudad_2), max(j, ciudad_2))
 
-        # Establecer el valor de tenencia tabú en la matriz (diagonal superior)
-        self.matriz_mcp_mlp[casilla_1] = self.params['tenencia']  # Asignar la tenencia tabú al movimiento
-        self.matriz_mcp_mlp[casilla_2] = self.params['tenencia']
-        self.mcp_lista_circular.append(casilla_1)  # Añadir el movimiento a la lista circular
-        self.mcp_lista_circular.append(casilla_2)
+        # Establecer el valor de tenencia tabú para estos movimientos
+        tenencia_tabu = self.params['tenencia']
+        self.mcp_tenencias[casilla_1] = tenencia_tabu
+        self.mcp_tenencias[casilla_2] = tenencia_tabu
+
+        # Añadir los movimientos a la lista circular (lista tabú)
+        self.mcp_lista_tabu.append(casilla_1)
+        self.mcp_lista_tabu.append(casilla_2)
+
+        # Si la lista tabú excede el tamaño máximo, eliminar los movimientos más antiguos
+        while len(self.mcp_lista_tabu) > self.params['tamano_lista_circular']:
+            movimiento_mas_antiguo = self.mcp_lista_tabu.popleft()
+            # También eliminar la tenencia correspondiente si existe en el diccionario
+            if movimiento_mas_antiguo in self.mcp_tenencias:
+                del self.mcp_tenencias[movimiento_mas_antiguo]
 
     def actualizar_mlp(self, nuevo_tour):
         """
         Actualiza la MLP (Memoria a Largo Plazo) incrementando los arcos visitados en el tour actual.
+        Utiliza un diccionario para almacenar los conteos de los arcos.
+
+        :param nuevo_tour: La lista de ciudades del tour actual.
         """
+        # Recorrer el tour e incrementar el conteo de los arcos en el diccionario de la MLP
         for k in range(len(nuevo_tour)):
             origen = nuevo_tour[k]
             destino = nuevo_tour[(k + 1) % len(nuevo_tour)]  # Asegura que el destino sea cíclico
-            # Incrementar el conteo del arco en la diagonal inferior
-            if origen > destino:
-                self.matriz_mcp_mlp[origen, destino] += 1  # Incrementar en la diagonal inferior
-            else:
-                self.matriz_mcp_mlp[destino, origen] += 1  # Incrementar en la diagonal inferior
 
-    def generar_nueva_solucion(self):
-        # Generar nueva solución mediante oscilación estratégica
+            # Crear la clave para el arco (ordenado de menor a mayor para consistencia)
+            arco = (min(origen, destino), max(origen, destino))
+
+            # Incrementar el conteo del arco en el diccionario
+            if arco in self.mlp:
+                self.mlp[arco] += 1
+            else:
+                self.mlp[arco] = 1
+
+    def generar_nueva_solucion(self, logger=None):
+        """
+        Genera una nueva solución mediante oscilación estratégica (diversificación o intensificación).
+        Utiliza la información de la MLP para influir en la estrategia elegida.
+        """
         if random.random() < self.params['oscilacion_estrategica']:
-            print("Ejecutando diversificación.")
-            self.tour_actual = self.estrategia_diversificacion()
+            if logger: logger.registrar_evento("Ejecutando diversificación.")
+            self.tour_actual = self.estrategia_diversificacion(self.mlp)
         else:
-            print("Ejecutando intensificación.")
-            self.tour_actual = self.estrategia_intensificacion()
+            if logger: logger.registrar_evento("Ejecutando intensificación.")
+            self.tour_actual = self.estrategia_intensificacion(self.mlp)
 
         # Reiniciar solo la MCP
-        self.mcp_lista_circular.clear()  # Limpiar la lista circular
-        self.mcp_mapa.clear()  # Limpiar el diccionario de movimientos prohibidos
+        self.mcp_lista_tabu.clear()  # Limpiar la lista tabú
+        self.mcp_tenencias.clear()  # Limpiar el diccionario de tenencias
 
         # Reiniciar la distancia
         self.distancia_actual = Utilidades.calcular_distancia_total(self.tour_actual, self.matriz_distancias)
+        if logger: logger.registrar_evento(f"NUEVA SOLUCIÓN: {self.distancia_actual}")
 
-    def estrategia_diversificacion(self):
-        # Implementar lógica para generar una solución nueva mediante diversificación
-        ciudades = list(range(len(self.matriz_distancias)))
-        random.shuffle(ciudades)  # Barajar las ciudades para crear un nuevo tour
-        return ciudades
+    def estrategia_diversificacion(self, mlp_diccionario):
+        """
+        Implementa la lógica de diversificación utilizando la información de la MLP.
+        Busca los arcos menos utilizados en mlp_diccionario para generar una nueva solución.
+        """
+        # Obtener los arcos menos utilizados
+        arcos_menos_usados = sorted(mlp_diccionario.items(), key=lambda item: item[1])
 
-    def estrategia_intensificacion(self):
-        # Implementar lógica para generar una solución nueva mediante intensificación
-        mejores_vecinos = Utilidades.generar_vecinos(10, self.mejor_momento_actual, self.matriz_distancias, self.distancia_mejor_momento_actual)
-        mejor_vecino = min(mejores_vecinos, key=lambda x: x[1])
-        return mejor_vecino[0]
+        # Generar una nueva solución basada en los arcos menos utilizados
+        nuevas_ciudades = [arc[0] for arc in
+                           arcos_menos_usados[:10]]  # Por ejemplo, seleccionar 10 arcos menos utilizados
+
+        # Crear un nuevo tour aleatorio utilizando las ciudades menos usadas
+        random.shuffle(nuevas_ciudades)
+        nuevo_tour = nuevas_ciudades + [ciudad for ciudad in self.tour_actual if ciudad not in nuevas_ciudades]
+
+        return nuevo_tour
+
+    def estrategia_intensificacion(self, mlp_diccionario):
+        """
+        Implementa la lógica de intensificación utilizando la información de la MLP.
+        Busca los arcos más utilizados en mlp_diccionario para generar una nueva solución.
+        """
+        # Obtener los arcos más utilizados
+        arcos_mas_usados = sorted(mlp_diccionario.items(), key=lambda item: item[1], reverse=True)
+
+        # Generar una nueva solución basada en los arcos más utilizados
+        nuevas_ciudades = [arc[0] for arc in arcos_mas_usados[:10]]  # Por ejemplo, seleccionar 10 arcos más utilizados
+
+        # Crear un nuevo tour aleatorio utilizando las ciudades más usadas
+        random.shuffle(nuevas_ciudades)
+        nuevo_tour = nuevas_ciudades + [ciudad for ciudad in self.tour_actual if ciudad not in nuevas_ciudades]
+
+        return nuevo_tour
+
+    # def estrategia_diversificacion(self):
+    #     # Implementar lógica para generar una solución nueva mediante diversificación
+    #     ciudades = list(range(len(self.matriz_distancias)))
+    #     random.shuffle(ciudades)  # Barajar las ciudades para crear un nuevo tour
+    #     return ciudades
+    #
+    # def estrategia_intensificacion(self):
+    #     # Implementar lógica para generar una solución nueva mediante intensificación
+    #     mejores_vecinos = Utilidades.generar_vecinos(10, self.mejor_momento_actual, self.matriz_distancias, self.distancia_mejor_momento_actual)
+    #     mejor_vecino = min(mejores_vecinos, key=lambda x: x[1])
+    #     return mejor_vecino[0]
