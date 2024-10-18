@@ -69,9 +69,11 @@ if __name__ == "__main__":
             log_bl.registrar_evento(f"Distancia total: {distancia_busqueda}, Tiempo: {execution_time}")
             log_bl.cerrar_log()  # Solo cerrar si `echo` es False
 
-            # print(f"\nEjecutando Algoritmo Tabú con la semilla {semilla}:")
-            # algoritmo_tabu = AlgoritmoTabu(tour, distancia_total, matriz_distancias, params)
-            # start_time = time.time()
-            # tour_tabu, distancia_tabu = algoritmo_tabu.resolver(semilla)
-            # execution_time = time.time() - start_time
-            # print("Distancia total:", distancia_tabu, ", Tiempo:", execution_time)
+            log_tabu = Logger(nombre_algoritmo="algoritmo_tabu", archivo_tsp={'nombre': archivo_tsp}, semilla=semilla, num_ejecucion=i, echo=params['echo'])
+            log_tabu.registrar_evento(f"Ejecutando Algoritmo Tabú con la semilla {semilla}:")
+            algoritmo_tabu = AlgoritmoTabu(tour, distancia_total, matriz_distancias, params)
+            start_time = time.time()
+            tour_tabu, distancia_tabu = algoritmo_tabu.resolver(semilla, logger=log_tabu)
+            execution_time = time.time() - start_time
+            log_tabu.registrar_evento(f"\nTour obtenido: {list(map(int, tour_tabu))}")
+            log_tabu.registrar_evento(f"Distancia total: {distancia_tabu}, Tiempo: {execution_time}")
