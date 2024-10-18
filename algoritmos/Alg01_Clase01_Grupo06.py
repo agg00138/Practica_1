@@ -14,7 +14,7 @@ class GreedyAleatorio:
         self.matriz_distancias = matriz_distancias
         self.k = params['k']
 
-    def resolver(self, semilla):
+    def resolver(self, semilla, logger=None):
         """
         Resuelve el problema utilizando el algoritmo Greedy Aleatorio con una semilla específica.
 
@@ -37,6 +37,9 @@ class GreedyAleatorio:
         ciudad_actual = random.choice(ciudades_prometedoras)
         tour.append(ciudad_actual)
         visitadas[ciudad_actual] = True
+        acumulada = 0
+
+        if logger: logger.registrar_evento(f"Ciudad de Inicio: {ciudad_actual}, Distancia recorrida = {acumulada}")
 
         for _ in range(num_ciudades - 1):
             # Obtener las ciudades no visitadas
@@ -44,15 +47,22 @@ class GreedyAleatorio:
 
             # Obtener las K ciudades más prometedoras entre las no visitadas
             k_mejores_ciudades = sorted_indices[np.isin(sorted_indices, no_visitadas)][:self.k]
+            if logger: logger.registrar_evento(f"{self.k} ciudades más prometedoras: {k_mejores_ciudades}")
 
             # Elegir aleatoriamente una ciudad de las K más prometedoras
             siguiente_ciudad = random.choice(k_mejores_ciudades)
+
+            # Sumo la distancia acumulada
+            acumulada += self.matriz_distancias[ciudad_actual][siguiente_ciudad]
 
             # Actualizar el tour y marcar la ciudad como visitada
             tour.append(siguiente_ciudad)
             visitadas[siguiente_ciudad] = True
             ciudad_actual = siguiente_ciudad
 
+            if logger: logger.registrar_evento(f"Viajando a ciudad: {ciudad_actual}, Distancia recorrida = {acumulada}")
+
         # Calcular la distancia total del tour
         distancia_total = Utilidades.calcular_distancia_total(np.array(tour), self.matriz_distancias)
+        if logger: logger.registrar_evento(f"Vuelta a ciudad de Inicio, Distancia recorrida = {distancia_total}")
         return tour, distancia_total
