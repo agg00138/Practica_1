@@ -4,7 +4,7 @@
 archivos = [a280.tsp, ch130.tsp, d18512.tsp, pr144.tsp, u1060.tsp]
 
 # Algoritmos
-algoritmos = [greedy_aleatorio]
+algoritmos = [greedy_aleatorio, busqueda_local, algoritmo_tabu]
 
 # Identificador Alumno (DNI)
 dni = 77378287
