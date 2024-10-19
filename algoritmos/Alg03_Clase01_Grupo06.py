@@ -85,7 +85,7 @@ class AlgoritmoTabu:
             # Verificar si hay estancamiento
             if estancamiento_contador >= self.params['per_estancamiento'] * self.params['iteraciones']:
                 if logger: logger.registrar_evento("Estancamiento detectado, generando nueva solución...")
-                self.generar_nueva_solucion()
+                self.generar_nueva_solucion(logger)
                 estancamiento_contador = 0  # Reiniciar el contador de estancamiento
 
             # Reducir el tamaño del entorno cada 10% de iteraciones
@@ -193,10 +193,10 @@ class AlgoritmoTabu:
         """
         if random.random() < self.params['oscilacion_estrategica']:
             if logger: logger.registrar_evento("Ejecutando diversificación.")
-            self.tour_actual = self.estrategia_diversificacion(self.mlp)
+            self.tour_actual = self.estrategia_diversificacion()
         else:
             if logger: logger.registrar_evento("Ejecutando intensificación.")
-            self.tour_actual = self.estrategia_intensificacion(self.mlp)
+            self.tour_actual = self.estrategia_intensificacion()
 
         # Reiniciar solo la MCP
         self.mcp_lista_tabu.clear()  # Limpiar la lista tabú
@@ -206,38 +206,43 @@ class AlgoritmoTabu:
         self.distancia_actual = Utilidades.calcular_distancia_total(self.tour_actual, self.matriz_distancias)
         if logger: logger.registrar_evento(f"NUEVA SOLUCIÓN: {self.distancia_actual}")
 
-    def estrategia_diversificacion(self, mlp_diccionario):
+    def estrategia_diversificacion(self):
         """
         Implementa la lógica de diversificación utilizando la información de la MLP.
         Busca los arcos menos utilizados en mlp_diccionario para generar una nueva solución.
         """
         # Obtener los arcos menos utilizados
-        arcos_menos_usados = sorted(mlp_diccionario.items(), key=lambda item: item[1])
-
-        # Generar una nueva solución basada en los arcos menos utilizados
-        nuevas_ciudades = [arc[0] for arc in
-                           arcos_menos_usados[:10]]  # Por ejemplo, seleccionar 10 arcos menos utilizados
+        arcos_menos_usados = sorted(self.mlp.items(), key=lambda item: item[1])
+        # Extraer las ciudades de los arcos menos utilizados utilizando conjuntos
+        ciudades_utilizadas = {ciudad for arco in arcos_menos_usados[:10] for ciudad in arco[0]}
 
         # Crear un nuevo tour aleatorio utilizando las ciudades menos usadas
+        nuevas_ciudades = list(ciudades_utilizadas)
         random.shuffle(nuevas_ciudades)
-        nuevo_tour = nuevas_ciudades + [ciudad for ciudad in self.tour_actual if ciudad not in nuevas_ciudades]
+
+        # Completar el tour con las ciudades que no están en las ciudades menos usadas
+        ciudades_restantes = set(self.tour_actual) - ciudades_utilizadas
+        nuevo_tour = nuevas_ciudades + list(ciudades_restantes)
 
         return nuevo_tour
 
-    def estrategia_intensificacion(self, mlp_diccionario):
+    def estrategia_intensificacion(self):
         """
         Implementa la lógica de intensificación utilizando la información de la MLP.
         Busca los arcos más utilizados en mlp_diccionario para generar una nueva solución.
         """
         # Obtener los arcos más utilizados
-        arcos_mas_usados = sorted(mlp_diccionario.items(), key=lambda item: item[1], reverse=True)
-
-        # Generar una nueva solución basada en los arcos más utilizados
-        nuevas_ciudades = [arc[0] for arc in arcos_mas_usados[:10]]  # Por ejemplo, seleccionar 10 arcos más utilizados
+        arcos_mas_usados = sorted(self.mlp.items(), key=lambda item: item[1], reverse=True)
+        # Extraer las ciudades de los arcos más utilizados utilizando conjuntos
+        ciudades_utilizadas = {ciudad for arco in arcos_mas_usados[:10] for ciudad in arco[0]}
 
         # Crear un nuevo tour aleatorio utilizando las ciudades más usadas
+        nuevas_ciudades = list(ciudades_utilizadas)
         random.shuffle(nuevas_ciudades)
-        nuevo_tour = nuevas_ciudades + [ciudad for ciudad in self.tour_actual if ciudad not in nuevas_ciudades]
+
+        # Completar el tour con las ciudades que no están en las ciudades más usadas
+        ciudades_restantes = set(self.tour_actual) - ciudades_utilizadas
+        nuevo_tour = nuevas_ciudades + list(ciudades_restantes)
 
         return nuevo_tour
 
