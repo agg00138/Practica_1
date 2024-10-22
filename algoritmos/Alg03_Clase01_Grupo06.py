@@ -1,5 +1,4 @@
 import random
-import numpy as np
 from collections import deque  # Para la lista circular
 from utils.utilidades import Utilidades
 
@@ -245,15 +244,3 @@ class AlgoritmoTabu:
         nuevo_tour = nuevas_ciudades + list(ciudades_restantes)
 
         return nuevo_tour
-
-    # def estrategia_diversificacion(self):
-    #     # Implementar lógica para generar una solución nueva mediante diversificación
-    #     ciudades = list(range(len(self.matriz_distancias)))
-    #     random.shuffle(ciudades)  # Barajar las ciudades para crear un nuevo tour
-    #     return ciudades
-    #
-    # def estrategia_intensificacion(self):
-    #     # Implementar lógica para generar una solución nueva mediante intensificación
-    #     mejores_vecinos = Utilidades.generar_vecinos(10, self.mejor_momento_actual, self.matriz_distancias, self.distancia_mejor_momento_actual)
-    #     mejor_vecino = min(mejores_vecinos, key=lambda x: x[1])
-    #     return mejor_vecino[0]
