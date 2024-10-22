@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     # Compruebo que el número de parámetros sea correcto
     if len(sys.argv) != 2:
-        print("Uso: python ./main.py ./params.txt")
+        print("Uso: python ./main.py ./config.txt")
         sys.exit(1)
 
     # Procesar configuración
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         tour = None
         distancia_total = None
 
-        # Ejecutar los algoritmos listados en params.txt
+        # Ejecutar los algoritmos listados en config.txt
         for i, semilla in enumerate(semillas, start=1):
             # Ejecutar Greedy Aleatorio si está en la lista de algoritmos
             if 'greedy_aleatorio' in algoritmos_a_ejecutar or tour is None:
