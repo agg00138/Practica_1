@@ -1,8 +1,8 @@
 import sys, os, time
 
-from algoritmos.Alg01_Clase01_Grupo06 import GreedyAleatorio
-from algoritmos.Alg02_Clase01_Grupo06 import BusquedaLocal
-from algoritmos.Alg03_Clase01_Grupo06 import AlgoritmoTabu
+from algoritmos.AlgGRE_Clase01_Grupo06 import GreedyAleatorio
+from algoritmos.AlgBL_Clase01_Grupo06 import BusquedaLocal
+from algoritmos.AlgTA_Clase01_Grupo06 import AlgoritmoTabu
 from utils.procesar_configuracion import Configuracion
 from utils.procesar_tsp import TSP
 from utils.utilidades import Utilidades
