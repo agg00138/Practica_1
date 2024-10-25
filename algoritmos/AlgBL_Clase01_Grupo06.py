@@ -26,7 +26,8 @@ class BusquedaLocal:
         """
         random.seed(semilla)  # Establece la semilla para la aleatoriedad
         tamanio_entorno = int(self.params['iteraciones'] * self.params['per_tamanio'])
-        cont = 0
+        cont = int(self.params['iteraciones'] * self.params['per_iteraciones'])
+        ite = 0
 
         if logger: logger.registrar_evento(f"Partimos de la solución del Greedy Aleatorio: {self.distancia_actual}")
 
@@ -53,7 +54,7 @@ class BusquedaLocal:
             if logger: logger.registrar_evento(f"¡Mejora encontrada! Distancia actual: {nueva_distancia}")
 
             # Reducimos el tamaño del entorno
-            tamanio_entorno, cont = Utilidades.reducir_entorno(tamanio_entorno, cont, iteracion, self.params['per_disminucion'], self.params['per_iteraciones'])
+            tamanio_entorno, cont, ite = Utilidades.reducir_entorno(tamanio_entorno, cont, iteracion, self.params['per_disminucion'], self.params['per_iteraciones'], ite)
             if tamanio_entorno < (self.params['per_disminucion'] * 100):
                 break
 

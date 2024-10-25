@@ -74,7 +74,7 @@ class Utilidades:
         return vecinos
 
     @staticmethod
-    def reducir_entorno(tamanio_entorno, cont, iteracion, per_disminucion, per_iteraciones):
+    def reducir_entorno(tamanio_entorno, cont, iteracion, per_disminucion, per_iteraciones, ite):
         """
         Reduce el tamaño del entorno cada un porcentaje de iteraciones un tanto por ciento
 
@@ -85,11 +85,11 @@ class Utilidades:
         :param per_iteraciones: Porcentaje de iteraciones a partir del cual se reduce el entorno.
         :return: tamanio_entorno, cont
         """
-        if iteracion == (cont + int(tamanio_entorno * per_iteraciones) ):
+        if iteracion == ite + cont:
             tamanio_entorno = max(1, int(tamanio_entorno * (1 - per_disminucion) ) )
-            cont = iteracion
+            ite += cont
 
-        return tamanio_entorno, cont
+        return tamanio_entorno, cont, ite
 
     @staticmethod
     def factorizacion(tour, matriz_distancias, i, j):
