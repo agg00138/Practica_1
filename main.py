@@ -10,13 +10,18 @@ from utils.crear_logs import Logger
 
 if __name__ == "__main__":
 
-    # Compruebo que el número de parámetros sea correcto
-    if len(sys.argv) != 2:
-        print("Uso: python ./main.py ./config.txt")
-        sys.exit(1)
+    # Detectar si se está ejecutando en un entorno PyInstaller
+    if getattr(sys, 'frozen', False):
+        # Si es así, sys._MEIPASS apunta al directorio temporal
+        base_dir = sys._MEIPASS
+    else:
+        # En caso contrario, usar el directorio actual
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Construir la ruta completa del archivo de configuración
+    archivo_configuracion = os.path.join(base_dir, 'config.txt')
 
     # Procesar configuración
-    archivo_configuracion = sys.argv[1]
     configuracion = Configuracion(archivo_configuracion)
     params = configuracion.procesar()
 
@@ -89,3 +94,6 @@ if __name__ == "__main__":
                 log_tabu.registrar_evento(f"\nTour obtenido: {list(map(int, tour_tabu))}")
                 log_tabu.registrar_evento(f"Distancia total: {distancia_tabu}, Tiempo: {execution_time}")
                 log_tabu.cerrar_log()  # Solo cerrar si `echo` es False
+
+    # Pausa antes de salir
+    input("Presiona Enter para salir...")
